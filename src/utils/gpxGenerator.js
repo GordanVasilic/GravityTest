@@ -123,10 +123,39 @@ export function generateGPX(runData) {
     // Heart Rate Simulation
     let hrXml = '';
     if (heartRate && heartRate.enabled) {
-      const progress = i / totalPoints;
-      const baseHr = heartRate.min + (heartRate.max - heartRate.min) * (0.5 - 0.5 * Math.cos(progress * Math.PI * 2));
-      const noise = (Math.random() - 0.5) * 5;
-      const currentHr = Math.round(Math.max(heartRate.min, Math.min(heartRate.max, baseHr + noise)));
+      const avgHr = heartRate.avg || 140;
+      const variability = heartRate.variability || 0;
+
+      // Calculate gradient (slope)
+      let gradient = 0;
+      if (i > 0) {
+        const dist = calculateDistance(points[i - 1].lat, points[i - 1].lon, point.lat, point.lon);
+        const eleDiff = elevationProfile[i] - elevationProfile[i - 1];
+        if (dist > 0) {
+          gradient = (eleDiff / dist) * 100; // Gradient in %
+        }
+      }
+
+      // Calculate target HR based on gradient
+      // 1% gradient increase approx +2 BPM (heuristic)
+      // Cap gradient effect to avoid unrealistic spikes
+      const gradientEffect = Math.max(-20, Math.min(30, gradient * 2.5));
+
+      // Add noise based on variability
+      const noise = (Math.random() - 0.5) * (variability * 0.5);
+
+      let targetHr = avgHr + gradientEffect + noise;
+
+      // Smooth transition from previous HR
+      if (i > 0 && points[i - 1].hr) {
+        const smoothingFactor = 0.2; // 0.0 = keep old, 1.0 = use new immediately
+        targetHr = points[i - 1].hr + (targetHr - points[i - 1].hr) * smoothingFactor;
+      }
+
+      // Store for next iteration smoothing
+      point.hr = targetHr;
+
+      const currentHr = Math.round(Math.max(40, Math.min(220, targetHr)));
 
       hrXml = `
         <extensions>
@@ -273,11 +302,40 @@ export function generateTCX(runData) {
     cumulativeDistance += (distance * 1000) / totalPoints;
 
     let hrXml = '';
+
     if (heartRate && heartRate.enabled) {
-      const progress = i / totalPoints;
-      const baseHr = heartRate.min + (heartRate.max - heartRate.min) * (0.5 - 0.5 * Math.cos(progress * Math.PI * 2));
-      const noise = (Math.random() - 0.5) * 5;
-      const currentHr = Math.round(Math.max(heartRate.min, Math.min(heartRate.max, baseHr + noise)));
+      const avgHr = heartRate.avg || 140;
+      const variability = heartRate.variability || 0;
+
+      // Calculate gradient (slope)
+      let gradient = 0;
+      if (i > 0) {
+        const dist = calculateDistance(points[i - 1].lat, points[i - 1].lon, point.lat, point.lon);
+        const eleDiff = elevationProfile[i] - elevationProfile[i - 1];
+        if (dist > 0) {
+          gradient = (eleDiff / dist) * 100; // Gradient in %
+        }
+      }
+
+      // Calculate target HR based on gradient
+      const gradientEffect = Math.max(-20, Math.min(30, gradient * 2.5));
+
+      // Add noise based on variability
+      const noise = (Math.random() - 0.5) * (variability * 0.5);
+
+      let targetHr = avgHr + gradientEffect + noise;
+
+      // Smooth transition from previous HR
+      if (i > 0 && points[i - 1].hr) {
+        const smoothingFactor = 0.2;
+        targetHr = points[i - 1].hr + (targetHr - points[i - 1].hr) * smoothingFactor;
+      }
+
+      // Store for next iteration smoothing
+      point.hr = targetHr;
+
+      const currentHr = Math.round(Math.max(40, Math.min(220, targetHr)));
+
       hrXml = `
             <HeartRateBpm>
               <Value>${currentHr}</Value>
