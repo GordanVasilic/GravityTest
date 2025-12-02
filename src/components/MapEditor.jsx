@@ -251,9 +251,6 @@ export default function MapEditor({ runData, setRunData }) {
                 mapboxAccessToken={MAPBOX_TOKEN}
                 onClick={handleMapClick}
                 cursor={draggingIndex !== null ? 'grabbing' : 'crosshair'}
-                onLoad={() => {
-                    geolocateControlRef.current?.trigger();
-                }}
             >
                 <GeocoderControl mapboxAccessToken={MAPBOX_TOKEN} position="top-right" mapboxgl={mapboxgl} />
                 <GeolocateControl
