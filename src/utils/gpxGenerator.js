@@ -137,25 +137,23 @@ export function generateGPX(runData) {
       }
 
       // Calculate target HR based on gradient
-      // 1% gradient increase approx +2 BPM (heuristic)
-      // Cap gradient effect to avoid unrealistic spikes
-      const gradientEffect = Math.max(-20, Math.min(30, gradient * 2.5));
+      // Increased sensitivity: 1% gradient -> +3.5 BPM
+      const gradientEffect = Math.max(-30, Math.min(40, gradient * 3.5));
 
-      // Add noise based on variability
-      const noise = (Math.random() - 0.5) * (variability * 0.5);
+      let targetHrBase = avgHr + gradientEffect;
 
-      let targetHr = avgHr + gradientEffect + noise;
-
-      // Smooth transition from previous HR
-      if (i > 0 && points[i - 1].hr) {
-        const smoothingFactor = 0.2; // 0.0 = keep old, 1.0 = use new immediately
-        targetHr = points[i - 1].hr + (targetHr - points[i - 1].hr) * smoothingFactor;
+      // Smooth the BASE heart rate (trend), not the noise
+      if (i > 0 && points[i - 1].hrBase) {
+        const smoothingFactor = 0.15; // Slower smoothing for trend
+        targetHrBase = points[i - 1].hrBase + (targetHrBase - points[i - 1].hrBase) * smoothingFactor;
       }
+      point.hrBase = targetHrBase;
 
-      // Store for next iteration smoothing
-      point.hr = targetHr;
+      // Add noise AFTER smoothing to keep it visible
+      // Variability of 40 means +/- 20 BPM noise
+      const noise = (Math.random() - 0.5) * variability;
 
-      const currentHr = Math.round(Math.max(40, Math.min(220, targetHr)));
+      const currentHr = Math.round(Math.max(40, Math.min(220, targetHrBase + noise)));
 
       hrXml = `
         <extensions>
@@ -318,23 +316,21 @@ export function generateTCX(runData) {
       }
 
       // Calculate target HR based on gradient
-      const gradientEffect = Math.max(-20, Math.min(30, gradient * 2.5));
+      const gradientEffect = Math.max(-30, Math.min(40, gradient * 3.5));
 
-      // Add noise based on variability
-      const noise = (Math.random() - 0.5) * (variability * 0.5);
+      let targetHrBase = avgHr + gradientEffect;
 
-      let targetHr = avgHr + gradientEffect + noise;
-
-      // Smooth transition from previous HR
-      if (i > 0 && points[i - 1].hr) {
-        const smoothingFactor = 0.2;
-        targetHr = points[i - 1].hr + (targetHr - points[i - 1].hr) * smoothingFactor;
+      // Smooth the BASE heart rate (trend)
+      if (i > 0 && points[i - 1].hrBase) {
+        const smoothingFactor = 0.15;
+        targetHrBase = points[i - 1].hrBase + (targetHrBase - points[i - 1].hrBase) * smoothingFactor;
       }
+      point.hrBase = targetHrBase;
 
-      // Store for next iteration smoothing
-      point.hr = targetHr;
+      // Add noise AFTER smoothing
+      const noise = (Math.random() - 0.5) * variability;
 
-      const currentHr = Math.round(Math.max(40, Math.min(220, targetHr)));
+      const currentHr = Math.round(Math.max(40, Math.min(220, targetHrBase + noise)));
 
       hrXml = `
             <HeartRateBpm>
