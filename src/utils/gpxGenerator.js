@@ -147,15 +147,31 @@ export function generateGPX(runData) {
 
       let targetHrBase = avgHr + gradientComponent;
 
+      // Warm-up logic
+      const elapsedSeconds = (currentTime.getTime() - startDateTime.getTime()) / 1000;
+      const warmUpDuration = 60; // 60 seconds warm-up
+      let noiseScaleFactor = 1.0;
+
+      if (elapsedSeconds < warmUpDuration) {
+        const startHr = 80;
+        const progress = elapsedSeconds / warmUpDuration;
+        // Ease out cubic for natural rise
+        const ease = 1 - Math.pow(1 - progress, 3);
+        targetHrBase = startHr + (targetHrBase - startHr) * ease;
+
+        // Scale noise: very low at start, increasing to full at end of warm-up
+        noiseScaleFactor = progress;
+      }
+
       // Smooth the BASE heart rate (trend)
       if (i > 0 && points[i - 1].hrBase) {
-        const smoothingFactor = 0.3;
+        const smoothingFactor = elapsedSeconds < warmUpDuration ? 0.5 : 0.3;
         targetHrBase = points[i - 1].hrBase + (targetHrBase - points[i - 1].hrBase) * smoothingFactor;
       }
       point.hrBase = targetHrBase;
 
       // Noise component
-      const noiseScale = maxDeviation * 0.4;
+      const noiseScale = maxDeviation * 0.4 * noiseScaleFactor;
       const noise = (Math.random() - 0.5) * 2 * noiseScale;
 
       const currentHr = Math.round(Math.max(40, Math.min(220, targetHrBase + noise)));
@@ -331,15 +347,30 @@ export function generateTCX(runData) {
 
       let targetHrBase = avgHr + gradientComponent;
 
+      // Warm-up logic
+      const elapsedSeconds = (currentTime.getTime() - startDateTime.getTime()) / 1000;
+      const warmUpDuration = 60; // 60 seconds warm-up
+      let noiseScaleFactor = 1.0;
+
+      if (elapsedSeconds < warmUpDuration) {
+        const startHr = 80;
+        const progress = elapsedSeconds / warmUpDuration;
+        // Ease out cubic for natural rise
+        const ease = 1 - Math.pow(1 - progress, 3);
+        targetHrBase = startHr + (targetHrBase - startHr) * ease;
+
+        noiseScaleFactor = progress;
+      }
+
       // Smooth the BASE heart rate (trend)
       if (i > 0 && points[i - 1].hrBase) {
-        const smoothingFactor = 0.3;
+        const smoothingFactor = elapsedSeconds < warmUpDuration ? 0.5 : 0.3;
         targetHrBase = points[i - 1].hrBase + (targetHrBase - points[i - 1].hrBase) * smoothingFactor;
       }
       point.hrBase = targetHrBase;
 
       // Noise component
-      const noiseScale = maxDeviation * 0.4;
+      const noiseScale = maxDeviation * 0.4 * noiseScaleFactor;
       const noise = (Math.random() - 0.5) * 2 * noiseScale;
 
       const currentHr = Math.round(Math.max(40, Math.min(220, targetHrBase + noise)));
