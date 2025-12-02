@@ -1,0 +1,352 @@
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import Map, { NavigationControl, Source, Layer, Marker } from 'react-map-gl';
+import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
+import * as turf from '@turf/turf';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
+import ConfirmationModal from './ConfirmationModal';
+
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiZ29nb2dhZ2E3IiwiYSI6ImNtZDNqOTdsbTA1eHIya3M5eTg1cWtvZ2IifQ.x3Sc3Yvvk5KV5bryO2WRmA';
+
+export default function MapEditor({ runData, setRunData }) {
+    const mapRef = useRef(null);
+    const [waypoints, setWaypoints] = useState([]);
+    const [routeGeometry, setRouteGeometry] = useState(null);
+    const [draggingIndex, setDraggingIndex] = useState(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [viewport, setViewport] = useState({
+        longitude: -74.0060,
+        latitude: 40.7128,
+        zoom: 13
+    });
+    const [pointToDelete, setPointToDelete] = useState(null);
+
+    // Fetch elevation data for route
+    const fetchElevation = useCallback(async (coordinates) => {
+        try {
+            // Sample points along the route (max 100 points for API limit)
+            const sampleSize = Math.min(coordinates.length, 100);
+            const step = Math.max(1, Math.floor(coordinates.length / sampleSize));
+            const sampledPoints = coordinates.filter((_, i) => i % step === 0);
+
+            // Open-Elevation API
+            const locations = sampledPoints.map(coord => ({
+                latitude: coord[1],
+                longitude: coord[0]
+            }));
+
+            const response = await fetch('https://api.open-elevation.com/api/v1/lookup', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    if(points.length < 2) {
+                        setRouteGeometry(null);
+            if (points.length === 0) {
+                setRunData(prev => ({
+                    ...prev,
+                    distance: 0,
+                    route: []
+                }));
+            }
+            return;
+        }
+
+        const coordinates = points.map(p => `${p.lng},${p.lat}`).join(';');
+        const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coordinates}?geometries=geojson&access_token=${MAPBOX_TOKEN}`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.routes && data.routes[0]) {
+                const route = data.routes[0];
+                setRouteGeometry(route.geometry);
+
+                // Calculate distance
+                const distance = route.distance / 1000; // Convert to km
+
+                // Fetch real elevation data
+                const elevationGain = await fetchElevation(route.geometry.coordinates);
+
+                setRunData(prev => ({
+                    ...prev,
+                    distance: parseFloat(distance.toFixed(2)),
+                    route: route.geometry.coordinates,
+                    elevationGain: elevationGain
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching route:', error);
+        }
+    }, [setRunData, fetchElevation]);
+
+    // Get user's location on mount
+    useEffect(() => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const newViewport = {
+                        longitude: position.coords.longitude,
+                        latitude: position.coords.latitude,
+                        zoom: 13
+                    };
+                    setViewport(newViewport);
+
+                    // Fly to user's location
+                    const map = mapRef.current?.getMap();
+                    if (map) {
+                        map.flyTo({
+                            center: [position.coords.longitude, position.coords.latitude],
+                            zoom: 13,
+                            duration: 2000
+                        });
+                    }
+                },
+                (error) => {
+                    console.log('Geolocation error:', error);
+                    // Keep default location (New York)
+                }
+            );
+        }
+    }, []);
+
+    // Handle map click to add waypoint
+    const handleMapClick = useCallback((event) => {
+        // Don't add waypoint if we're dragging
+        if (draggingIndex !== null) return;
+
+        const { lngLat } = event;
+        const newWaypoints = [...waypoints, { lng: lngLat.lng, lat: lngLat.lat }];
+        setWaypoints(newWaypoints);
+        fetchRoute(newWaypoints);
+    }, [waypoints, fetchRoute, draggingIndex]);
+
+    // Handle waypoint drag
+    const onMarkerDragStart = useCallback((index) => {
+        setDraggingIndex(index);
+    }, []);
+
+    const onMarkerDrag = useCallback((event, index) => {
+        const { lngLat } = event;
+        const newWaypoints = [...waypoints];
+        newWaypoints[index] = { lng: lngLat.lng, lat: lngLat.lat };
+        setWaypoints(newWaypoints);
+    }, [waypoints]);
+
+    const onMarkerDragEnd = useCallback((event, index) => {
+        const { lngLat } = event;
+        const newWaypoints = [...waypoints];
+        newWaypoints[index] = { lng: lngLat.lng, lat: lngLat.lat };
+        setWaypoints(newWaypoints);
+        fetchRoute(newWaypoints);
+        setDraggingIndex(null);
+    }, [waypoints, fetchRoute]);
+
+    // Clear route
+    const clearRoute = useCallback(() => {
+        setWaypoints([]);
+        setRouteGeometry(null);
+        setRunData(prev => ({
+            ...prev,
+            distance: 0,
+            route: []
+        }));
+    }, [setRunData]);
+
+    // Undo last waypoint
+    const undoLastPoint = useCallback(() => {
+        if (waypoints.length > 0) {
+            const newWaypoints = waypoints.slice(0, -1);
+            setWaypoints(newWaypoints);
+            fetchRoute(newWaypoints);
+        }
+    }, [waypoints, fetchRoute]);
+
+    const confirmDelete = useCallback(() => {
+        if (pointToDelete !== null) {
+            const newWaypoints = waypoints.filter((_, i) => i !== pointToDelete);
+            setWaypoints(newWaypoints);
+            fetchRoute(newWaypoints);
+            setPointToDelete(null);
+        }
+    }, [pointToDelete, waypoints, fetchRoute]);
+
+    const addShape = (type) => {
+        const map = mapRef.current?.getMap();
+        if (!map) return;
+
+        const center = map.getCenter();
+        const centerPoint = [center.lng, center.lat];
+
+        let geojson;
+        const radius = 0.5; // km
+
+        if (type === 'circle') {
+            geojson = turf.circle(centerPoint, radius, { steps: 64, units: 'kilometers' });
+        } else if (type === 'heart') {
+            const points = [];
+            const R = radius / 100;
+            for (let t = 0; t <= 2 * Math.PI; t += 0.1) {
+                const x = 16 * Math.pow(Math.sin(t), 3);
+                const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                const lng = center.lng + (x * R);
+                const lat = center.lat + (y * R);
+                points.push([lng, lat]);
+            }
+            points.push(points[0]);
+            geojson = turf.polygon([points]);
+        }
+
+        if (geojson) {
+            const distance = turf.length(geojson, { units: 'kilometers' });
+            const coordinates = geojson.geometry.coordinates[0] || geojson.geometry.coordinates;
+
+            // Fetch real elevation data
+            fetchElevation(coordinates).then(elevationGain => {
+                setRouteGeometry(geojson.geometry);
+                setWaypoints([]);
+                setRunData(prev => ({
+                    ...prev,
+                    distance: parseFloat(distance.toFixed(2)),
+                    route: coordinates,
+                    elevationGain: elevationGain
+                }));
+            });
+        }
+    };
+
+    return (
+        <div
+            className="w-full h-full relative"
+            onContextMenu={(e) => {
+                e.preventDefault();
+                return false;
+            }}
+        >
+            <Map
+                ref={mapRef}
+                initialViewState={viewport}
+                onMove={(evt) => setViewport(evt.viewState)}
+                style={{ width: '100%', height: '100%' }}
+                mapStyle={`mapbox://styles/mapbox/${runData.mapStyle || 'streets-v11'}`}
+                mapboxAccessToken={MAPBOX_TOKEN}
+                onClick={handleMapClick}
+                cursor={draggingIndex !== null ? 'grabbing' : 'crosshair'}
+            >
+                <NavigationControl position="bottom-right" />
+
+                {/* Route Line */}
+                {routeGeometry && (
+                    <Source id="route" type="geojson" data={{ type: 'Feature', geometry: routeGeometry }}>
+                        <Layer
+                            id="route-line"
+                            type="line"
+                            paint={{
+                                'line-color': '#3b82f6',
+                                'line-width': 4,
+                                'line-opacity': 0.8
+                            }}
+                        />
+                    </Source>
+                )}
+
+                {/* Waypoint Markers */}
+                {waypoints.map((point, index) => (
+                    <Marker
+                        key={index}
+                        longitude={point.lng}
+                        latitude={point.lat}
+                        draggable={true}
+                        onDragStart={() => onMarkerDragStart(index)}
+                        onDrag={(e) => onMarkerDrag(e, index)}
+                        onDragEnd={(e) => onMarkerDragEnd(e, index)}
+                        anchor="center"
+                    >
+                        <div
+                            className="w-5 h-5 bg-blue-500 border-2 border-white rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:scale-110 transition-transform"
+                            title={`Point ${index + 1} - Drag to move, Right-click to delete`}
+                            onMouseDown={(e) => {
+                                if (e.button === 2) { // Right click
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setPointToDelete(index);
+                                    setDeleteModalOpen(true);
+                                }
+                            }}
+                            onContextMenu={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                return false;
+                            }}
+                        />
+                    </Marker>
+                ))}
+            </Map>
+
+            {/* Controls */}
+            <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur p-3 rounded-md shadow-lg border border-border">
+                <div className="text-sm font-bold mb-2">🗺️ Click on map to add route points</div>
+                <div className="text-xs text-muted-foreground mb-3">
+                    Drag points • Right-click to delete
+                </div>
+                <div className="flex flex-col gap-2">
+                    <button
+                        onClick={undoLastPoint}
+                        disabled={waypoints.length === 0}
+                        className="px-3 py-1.5 text-xs bg-secondary hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed rounded border border-border"
+                    >
+                        ↶ Undo Last Point
+                    </button>
+                    <button
+                        onClick={clearRoute}
+                        disabled={waypoints.length === 0}
+                        className="px-3 py-1.5 text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                    >
+                        🗑️ Clear Route
+                    </button>
+                </div>
+            </div>
+
+            {/* Shape Controls */}
+            <div className="absolute top-4 right-12 z-10 flex flex-col gap-2">
+                <div className="bg-white/90 backdrop-blur p-2 rounded-md shadow-sm border border-border flex flex-col gap-2">
+                    <div className="text-xs font-bold text-center mb-1">Shapes</div>
+                    <button className="p-2 hover:bg-secondary rounded text-xs border border-border" onClick={() => addShape('circle')}>
+                        Circle
+                    </button>
+                    <button className="p-2 hover:bg-secondary rounded text-xs border border-border" onClick={() => addShape('heart')}>
+                        Heart
+                    </button>
+                </div>
+
+                <div className="bg-white/90 backdrop-blur p-2 rounded-md shadow-sm border border-border flex flex-col gap-2">
+                    <div className="text-xs font-bold text-center mb-1">Style</div>
+                    <select
+                        className="text-xs p-1 rounded border border-border bg-transparent"
+                        value={runData.mapStyle || 'streets-v11'}
+                        onChange={(e) => setRunData({ mapStyle: e.target.value })}
+                    >
+                        <option value="streets-v11">Streets</option>
+                        <option value="outdoors-v11">Outdoors</option>
+                        <option value="satellite-v9">Satellite</option>
+                        <option value="light-v10">Light</option>
+                        <option value="dark-v10">Dark</option>
+                    </select>
+                </div>
+            </div>
+
+            <ConfirmationModal
+                isOpen={deleteModalOpen}
+                onClose={() => {
+                    setDeleteModalOpen(false);
+                    setPointToDelete(null);
+                }}
+                onConfirm={confirmDelete}
+                title="Delete Waypoint"
+                message={`Are you sure you want to delete point ${pointToDelete !== null ? pointToDelete + 1 : ''}? This will recalculate the route.`}
+                confirmText="Delete"
+                isDestructive={true}
+            />
+        </div >
+    );
+}

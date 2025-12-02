@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    /* Strava Brand Colors */
+    --strava-orange: 16 98% 50%; /* #fc4c02 */
+    --strava-gray: 0 0% 96%;     /* #f5f5f5 - Background */
+    --strava-text: 0 0% 20%;     /* #333333 - Primary Text */
+    
+    --background: 0 0% 96%;      /* #f5f5f5 */
+    --foreground: 0 0% 20%;      /* #333333 */
+ 
+    --card: 0 0% 100%;           /* #ffffff */
+    --card-foreground: 0 0% 20%; /* #333333 */
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 20%;
+ 
+    --primary: 16 98% 50%;       /* #fc4c02 */
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 16 98% 50%;
+ 
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 40%;
+ 
+    --accent: 16 98% 95%;
+    --accent-foreground: 16 98% 50%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 0 0% 85%;
+    --input: 0 0% 100%;
+    --ring: 16 98% 50%;
+ 
+    --radius: 0.25rem; /* Strava uses slightly sharper corners usually, or standard */
+  }
+ 
+  .dark {
+    /* Dark mode adaptation - Dark Gray theme */
+    --background: 0 0% 10%;
+    --foreground: 0 0% 90%;
+ 
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 90%;
+ 
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 90%;
+ 
+    --primary: 16 98% 50%;
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 90%;
+ 
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 60%;
+ 
+    --accent: 16 98% 20%;
+    --accent-foreground: 16 98% 50%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+ 
+    --border: 0 0% 25%;
+    --input: 0 0% 20%;
+    --ring: 16 98% 50%;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
