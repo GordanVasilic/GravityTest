@@ -126,6 +126,9 @@ export function generateGPX(runData) {
       const avgHr = heartRate.avg || 140;
       const variability = heartRate.variability || 0;
 
+      // Calculate desired range based on variability percentage
+      const maxDeviation = avgHr * (variability / 100) / 2;
+
       // Calculate gradient (slope)
       let gradient = 0;
       if (i > 0) {
@@ -136,22 +139,24 @@ export function generateGPX(runData) {
         }
       }
 
-      // Calculate target HR based on gradient
-      // Increased sensitivity: 1% gradient -> +3.5 BPM
-      const gradientEffect = Math.max(-30, Math.min(40, gradient * 3.5));
+      // Map gradient to the deviation range
+      const gradientSensitivity = 15;
+      const normalizedGradient = Math.max(-1, Math.min(1, gradient / gradientSensitivity));
 
-      let targetHrBase = avgHr + gradientEffect;
+      const gradientComponent = normalizedGradient * maxDeviation;
 
-      // Smooth the BASE heart rate (trend), not the noise
+      let targetHrBase = avgHr + gradientComponent;
+
+      // Smooth the BASE heart rate (trend)
       if (i > 0 && points[i - 1].hrBase) {
-        const smoothingFactor = 0.15; // Slower smoothing for trend
+        const smoothingFactor = 0.3;
         targetHrBase = points[i - 1].hrBase + (targetHrBase - points[i - 1].hrBase) * smoothingFactor;
       }
       point.hrBase = targetHrBase;
 
-      // Add noise AFTER smoothing to keep it visible
-      // Variability of 40 means +/- 20 BPM noise
-      const noise = (Math.random() - 0.5) * variability;
+      // Noise component
+      const noiseScale = maxDeviation * 0.4;
+      const noise = (Math.random() - 0.5) * 2 * noiseScale;
 
       const currentHr = Math.round(Math.max(40, Math.min(220, targetHrBase + noise)));
 
@@ -305,6 +310,9 @@ export function generateTCX(runData) {
       const avgHr = heartRate.avg || 140;
       const variability = heartRate.variability || 0;
 
+      // Calculate desired range based on variability percentage
+      const maxDeviation = avgHr * (variability / 100) / 2;
+
       // Calculate gradient (slope)
       let gradient = 0;
       if (i > 0) {
@@ -315,20 +323,24 @@ export function generateTCX(runData) {
         }
       }
 
-      // Calculate target HR based on gradient
-      const gradientEffect = Math.max(-30, Math.min(40, gradient * 3.5));
+      // Map gradient to the deviation range
+      const gradientSensitivity = 15;
+      const normalizedGradient = Math.max(-1, Math.min(1, gradient / gradientSensitivity));
 
-      let targetHrBase = avgHr + gradientEffect;
+      const gradientComponent = normalizedGradient * maxDeviation;
+
+      let targetHrBase = avgHr + gradientComponent;
 
       // Smooth the BASE heart rate (trend)
       if (i > 0 && points[i - 1].hrBase) {
-        const smoothingFactor = 0.15;
+        const smoothingFactor = 0.3;
         targetHrBase = points[i - 1].hrBase + (targetHrBase - points[i - 1].hrBase) * smoothingFactor;
       }
       point.hrBase = targetHrBase;
 
-      // Add noise AFTER smoothing
-      const noise = (Math.random() - 0.5) * variability;
+      // Noise component
+      const noiseScale = maxDeviation * 0.4;
+      const noise = (Math.random() - 0.5) * 2 * noiseScale;
 
       const currentHr = Math.round(Math.max(40, Math.min(220, targetHrBase + noise)));
 
