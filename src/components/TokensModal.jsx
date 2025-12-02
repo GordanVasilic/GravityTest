@@ -23,7 +23,7 @@ export default function TokensModal({ open, onClose }) {
     if (!selected) return
     try {
       setLoading(true)
-      const res = await fetch('http://localhost:8787/api/checkout/session', {
+      const res = await fetch('/api/checkout/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pack: selected }),

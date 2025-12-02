@@ -79,7 +79,7 @@ function App() {
             verificationRef.current = true;
             (async () => {
                 try {
-                    const res = await fetch('http://localhost:8787/api/checkout/verify', {
+                    const res = await fetch('/api/checkout/verify', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ session_id: sessionId })
