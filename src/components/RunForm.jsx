@@ -259,7 +259,7 @@ export default function RunForm({ runData, setRunData, openBuyTokens }) {
                                 <input
                                     type="range"
                                     min="0"
-                                    max="40"
+                                    max="60"
                                     value={runData.heartRate.variability || 0}
                                     onChange={(e) => setRunData({
                                         heartRate: { ...runData.heartRate, variability: parseInt(e.target.value) }
