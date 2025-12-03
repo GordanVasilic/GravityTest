@@ -325,7 +325,8 @@ export default function RunForm({ runData, setRunData, openBuyTokens }) {
             <div className="grid grid-cols-2 gap-3 pt-4">
                 <button
                     onClick={handleDownload}
-                    className="flex flex-col items-center justify-center h-12 rounded bg-primary text-white hover:bg-orange-700 transition-colors shadow-sm hover:shadow relative overflow-hidden group"
+                    disabled={!runData.route || runData.route.length < 2}
+                    className={`flex flex-col items-center justify-center h-12 rounded bg-primary text-white transition-colors shadow-sm relative overflow-hidden group ${(!runData.route || runData.route.length < 2) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-700 hover:shadow'}`}
                 >
                     <span className="text-sm font-bold">Download GPX</span>
                     <span className="text-[10px] font-medium opacity-90 bg-black/10 px-2 py-0.5 rounded-full mt-0.5">1 Token</span>
@@ -339,7 +340,8 @@ export default function RunForm({ runData, setRunData, openBuyTokens }) {
                         }
                         downloadTCX(runData)
                     }}
-                    className="flex flex-col items-center justify-center h-12 rounded bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors shadow-sm hover:shadow relative overflow-hidden group"
+                    disabled={!runData.route || runData.route.length < 2}
+                    className={`flex flex-col items-center justify-center h-12 rounded bg-white border border-gray-300 text-gray-700 transition-colors shadow-sm relative overflow-hidden group ${(!runData.route || runData.route.length < 2) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 hover:shadow'}`}
                 >
                     <span className="text-sm font-bold">Download TCX</span>
                     <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full mt-0.5 group-hover:bg-gray-200 transition-colors">1 Token</span>
