@@ -56,6 +56,7 @@ app.post('/api/checkout/session', async (req, res) => {
             success_url: `${APP_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${APP_BASE_URL}/`,
             allow_promotion_codes: true,
+            locale: 'en',
         })
         console.log('Session created successfully:', session.id)
         res.json({ url: session.url })

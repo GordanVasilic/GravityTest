@@ -94,26 +94,39 @@ export default function PaceChart({ data }) {
             let hr = null;
             if (heartRate?.enabled) {
                 const avgHR = heartRate.avg || 140;
-                const variability = heartRate.variability || 10;
-                const variabilityPct = Math.max(0, Math.min(variability, 40));
-                let gradientHRImpact = 0;
-                if (gradient > 0) {
-                    gradientHRImpact = gradient * 2;
-                } else {
-                    gradientHRImpact = gradient * 1;
+                const variability = heartRate.variability || 0;
+
+                // Calculate desired range based on variability percentage
+                const maxDeviation = avgHR * (variability / 100) / 2;
+
+                // Map gradient to the deviation range
+                const gradientSensitivity = 15;
+                const normalizedGradient = Math.max(-1, Math.min(1, gradient / gradientSensitivity));
+                const gradientComponent = normalizedGradient * maxDeviation;
+
+                let targetHrBase = avgHR + gradientComponent;
+
+                // Warm-up logic - simulate time elapsed (assume 5 min/km pace for time estimation)
+                const estimatedTimeSeconds = currentDist * 1000 * (pace / 1000);
+                const warmUpDuration = 60; // 60 seconds warm-up
+                let noiseScaleFactor = 1.0;
+
+                if (estimatedTimeSeconds < warmUpDuration) {
+                    const startHr = 80;
+                    const progress = estimatedTimeSeconds / warmUpDuration;
+                    // Ease out cubic for natural rise
+                    const ease = 1 - Math.pow(1 - progress, 3);
+                    targetHrBase = startHr + (targetHrBase - startHr) * ease;
+
+                    // Scale noise during warm-up
+                    noiseScaleFactor = progress;
                 }
-                if (gradient > 1) {
-                    hrFatigue += gradient * 0.1;
-                } else {
-                    hrFatigue -= 0.5;
-                }
-                hrFatigue = Math.max(0, Math.min(15, hrFatigue));
-                const randomVariation = (Math.random() - 0.5) * (avgHR * variabilityPct / 100) * 0.5;
-                const hrMin = Math.round(avgHR * (1 - variabilityPct / 100));
-                const hrMax = Math.round(avgHR * (1 + variabilityPct / 100));
-                hr = Math.round(avgHR + gradientHRImpact * (inconsistency / 50) + hrFatigue * (inconsistency / 50) + randomVariation);
-                hr = Math.max(hrMin, Math.min(hrMax, hr));
-                hr = Math.max(60, Math.min(200, hr));
+
+                // Noise component
+                const noiseScale = maxDeviation * 0.4 * noiseScaleFactor;
+                const noise = (Math.random() - 0.5) * 2 * noiseScale;
+
+                hr = Math.round(Math.max(40, Math.min(220, targetHrBase + noise)));
             }
 
             const displayValue = isRide
